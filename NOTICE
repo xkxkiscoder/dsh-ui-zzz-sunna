@@ -1,0 +1,37 @@
+dsh-ui-zzz-sunna（绝区零 · 千夏 · Sunna）
+====================================================
+
+Third-party derivative notice (CC BY-NC-SA 4.0 attribution chain)
+
+本插件的视觉设计取自游戏《绝区零》(Zenless Zone Zero) 的角色「千夏」(Sunna)。
+按 CC BY-NC-SA 4.0 的署名与相同方式共享要求，上游权利人列明如下：
+
+1. 原作 (original work): miHoYo / HoYoverse（米哈游）—— 「绝区零」
+   (Zenless Zone Zero) 游戏作品及千夏 (Sunna) 角色形象的权利人。
+   The original game and character design.
+
+2. 角色素材 (assets): assets/ 下的立绘与意象影画取自萌娘共享的「千夏(绝区零)」
+   分类页；七个 Q 版表情的源文件来自官方表情导出包；启动动画为用户自制。
+   素材经过裁边、抠图/镜像与重采样处理。逐项来源与权利审计见
+   assets/SOURCES.md。
+   Character art and key visuals come from the Moegirl Commons category;
+   the chibi emote source files come from an official emote export; the
+   launch animation is the author's own work. Per-file provenance and
+   rights audit: assets/SOURCES.md.
+
+3. 工程结构 (engineering structure): 两半插件布局（node 侧资产路由 + 浏览器侧
+   覆盖层）与「皮肤覆盖层 + 自定义属性」的整体思路，参考
+   dsh-client-ui-skin-denia（作者 Ewnscat）。
+   The two-half plugin layout and the skin-overlay approach follow
+   dsh-client-ui-skin-denia by Ewnscat.
+
+4. 本插件 (this plugin): 刻月晚 —— 基于 DeepSeek Harness Web UI 的外观
+   覆盖层实现，含主题 token 层、槽位样式表、调色画板与启动动画。
+   The appearance overlay implementation for the DeepSeek Harness Web UI.
+
+Usage terms: CC BY-NC-SA 4.0 —— 署名 (attribution)、非商业 (non-commercial
+only)、相同方式共享 (share-alike)。完整条款见 LICENSE。
+
+Character "Sunna" (千夏) and "Zenless Zone Zero" (绝区零) are trademarks of
+miHoYo / HoYoverse. This plugin is a fan work and is not affiliated with or
+endorsed by miHoYo / HoYoverse.
