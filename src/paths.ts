@@ -16,4 +16,7 @@ export const ASSET_EXTENSIONS: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
+  // The launch splash is a clip, not a still: without this entry the route
+  // refuses it with a plain 404 and the overlay never gets a frame to show.
+  '.mp4': 'video/mp4',
 }
