@@ -5,7 +5,7 @@
 两套主题、五个可调图层、一个能拖到任意位置的 Q 版挂件，全部在右下角的画板里实时调整，不用重启。
 
 ## 安装
-- npm暂时还不行，没搞定2fa
+
 ```sh
 dsh plugin --profile desktop add dsh-ui-zzz-sunna
 ```
