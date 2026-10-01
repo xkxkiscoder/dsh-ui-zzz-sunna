@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # 建 release 要写仓库内容
   id-token: write # trusted publishing 通过 OIDC 认证，必须给这个权限
 
 jobs:
@@ -33,3 +33,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
       - run: npm publish --provenance --access public
+
+      # 打 tag 时写在注解里的说明直接变成 Release 正文；没写注解就让 GitHub
+      # 从提交记录生成，省得为每个版本手填一遍。
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          if [ -z "$notes" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "$notes"
+          fi
