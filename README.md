@@ -10,7 +10,7 @@
 dsh plugin --profile desktop add dsh-ui-zzz-sunna
 ```
 
-装完重启 dsh。
+装完即生效，不用重启。
 
 **从源码装**
 
