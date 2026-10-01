@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # 读 tag 注解需要完整历史
 
       - uses: pnpm/action-setup@v4
         with:
@@ -35,8 +33,8 @@ jobs:
       - run: pnpm run check
       - run: npm publish --provenance --access public
 
-      # tag 注解里的更新说明直接成为 Release 正文；没写注解就让 GitHub 从提交
-      # 记录生成。已经存在就不动，重跑一次发版不会因为 Release 报错。
+      # Release 正文取自 CHANGELOG.md 里 `## [<版本>]` 那一段，所以更新说明只有
+      # 一处来源；没写就让 GitHub 从提交记录生成。已存在就不动，重跑不会报错。
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,7 +43,12 @@ jobs:
             echo "release $GITHUB_REF_NAME already exists, leaving it alone"
             exit 0
           fi
-          notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          version="${GITHUB_REF_NAME#v}"
+          notes=$(awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md)
           if [ -z "$notes" ]; then
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
           else
