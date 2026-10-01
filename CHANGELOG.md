@@ -6,6 +6,12 @@
 
 发新版本时在顶部加一段 `## [x.y.z] - 日期`，CI 会用这一段作为 GitHub Release 的正文。
 
+## [0.1.3] - 2026-10-01
+
+### 📝 文档
+
+- CHANGELOG 只保留有对应 Release 的版本链接。
+
 ## [0.1.2] - 2026-10-01
 
 ### ✨ 新增功能
@@ -16,7 +22,7 @@
 
 - 安装后**无需重启**，新装的组合包走 HMR 直接生效。
 
-## [0.1.1] - 2026-10-01
+## 0.1.1 - 2026-10-01
 
 ### 🐛 问题修复
 
@@ -27,7 +33,7 @@
 
 - 安装章节改为 npm 优先，并补充从 GitHub 源安装的说明。
 
-## [0.1.0] - 2026-10-01
+## 0.1.0 - 2026-10-01
 
 ### ✨ 新增功能
 
@@ -36,6 +42,5 @@
 - **Q 版挂件** —— 七个官方表情可选，可拖到窗口任意位置。
 - 「影画」主题背景提供六个候选，默认项跟随明暗（浅色 09 / 深色 08）。
 
+[0.1.3]: https://github.com/xkxkiscoder/dsh-ui-zzz-sunna/releases/tag/v0.1.3
 [0.1.2]: https://github.com/xkxkiscoder/dsh-ui-zzz-sunna/releases/tag/v0.1.2
-[0.1.1]: https://github.com/xkxkiscoder/dsh-ui-zzz-sunna/releases/tag/v0.1.1
-[0.1.0]: https://github.com/xkxkiscoder/dsh-ui-zzz-sunna/releases/tag/v0.1.0
