@@ -1,11 +1,10 @@
 name: publish
 
+# 只有一个入口：推 tag。release 和手动触发都曾是触发器，但它们会在同一个版本
+# 上再跑一遍发布，被 npm 以「版本已存在」拒绝 —— 一次发版一条路径。
 on:
   push:
     tags: ['v*']
-  release:
-    types: [published]
-  workflow_dispatch:
 
 permissions:
   contents: write # 建 release 要写仓库内容
@@ -16,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 读 tag 注解需要完整历史
 
       - uses: pnpm/action-setup@v4
         with:
@@ -34,13 +35,16 @@ jobs:
       - run: pnpm run check
       - run: npm publish --provenance --access public
 
-      # 打 tag 时写在注解里的说明直接变成 Release 正文；没写注解就让 GitHub
-      # 从提交记录生成，省得为每个版本手填一遍。
+      # tag 注解里的更新说明直接成为 Release 正文；没写注解就让 GitHub 从提交
+      # 记录生成。已经存在就不动，重跑一次发版不会因为 Release 报错。
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists, leaving it alone"
+            exit 0
+          fi
           notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
           if [ -z "$notes" ]; then
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
