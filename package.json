@@ -1,7 +1,7 @@
 {
   "name": "dsh-ui-zzz-sunna",
   "description": "Sunna brand appearance tokens for the dsh web client, registered as a ctx.theme override layer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publishConfig": {
     "access": "public"
   },
