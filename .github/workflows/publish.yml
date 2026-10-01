@@ -6,6 +6,12 @@ on:
   push:
     tags: ['v*']
 
+# 同一个 ref 的并发 run 排队而不是并行。真正兜底的是下面 Publish 里的已发布
+# 检查：同一次 tag push 有时会投递出两个 run，谁先谁后都不该让另一个报错。
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write # 建 release 要写仓库内容
   id-token: write # trusted publishing 通过 OIDC 认证，必须给这个权限
@@ -31,10 +37,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
-      - run: npm publish --provenance --access public
+
+      # 版本已在 registry 上就当成功返回：重复投递的第二个 run 不该失败。
+      - name: Publish
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "dsh-ui-zzz-sunna@$version" version >/dev/null 2>&1; then
+            echo "dsh-ui-zzz-sunna@$version is already published, skipping"
+          else
+            npm publish --provenance --access public
+          fi
 
       # Release 正文取自 CHANGELOG.md 里 `## [<版本>]` 那一段，所以更新说明只有
-      # 一处来源；没写就让 GitHub 从提交记录生成。已存在就不动，重跑不会报错。
+      # 一处来源；没写就让 GitHub 从提交记录生成。已存在就不动。
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
