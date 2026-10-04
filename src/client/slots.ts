@@ -218,6 +218,30 @@ export const LAYERS: readonly LayerSpec[] = [
 ]
 
 /**
+ * Opacity of the background the conversation's own content blocks paint, in
+ * percent.
+ *
+ * Global rather than per-theme, and deliberately not a layer: there is no art
+ * behind it. It answers to legibility — how much of the figures shows through a
+ * code block or a tool card — so a theme switch must not reset it.
+ *
+ * One value reaches every such block because the first party paints them all
+ * from a single alias token; `tokens.ts` thins that token by this number. 100
+ * leaves them exactly as the first party draws them.
+ */
+export const CONTENT_BG_DEFAULT = 100
+
+/**
+ * Custom property carrying the content opacity above.
+ *
+ * Shared rather than written twice: the board publishes it on :root and
+ * `tokens.ts` reads it inside the content-block values, so a typo on either side
+ * leaves the slider driving nothing — a failure that looks exactly like a slider
+ * that does nothing, with no console error to follow.
+ */
+export const CONTENT_BG_VARIABLE = '--dsz-content-bg'
+
+/**
  * The shipped themes, in board order. The first one is the default: it is what
  * `skin.ts` bakes in as the stylesheet fallback, so it paints even on a profile
  * where the board never mounts.

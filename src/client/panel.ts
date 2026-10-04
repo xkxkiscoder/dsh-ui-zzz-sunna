@@ -8,9 +8,10 @@
  * and tuning one theme never disturbs another. Storage is best-effort: a blocked
  * or full store costs persistence, never the live tweak.
  */
-import { LAYERS, THEMES, assetUrl, canonicalThemeId, defaultTheme, pickedVariant, resolveLayer, themeById } from './slots.ts'
+import { CONTENT_BG_DEFAULT, CONTENT_BG_VARIABLE, LAYERS, THEMES, assetUrl, canonicalThemeId, defaultTheme, pickedVariant, resolveLayer, themeById } from './slots.ts'
 import type { LayerSpec, LayerVariant, ResolvedLayer, ThemePack } from './slots.ts'
 import { BOARD_CLASS, BOARD_STYLE_ID, buildBoardCss } from './skin.ts'
+import { SPLASH_DURATION_DEFAULT, SPLASH_DURATION_KEY, loadSplashDuration } from './splash.ts'
 
 /** Storage key holding the persisted board state. */
 const STORAGE_KEY = 'dsh-ui-zzz-sunna:board'
@@ -43,10 +44,16 @@ interface LayerState {
   variant: number
 }
 
-/** Board state: the chosen theme, plus each theme's own layer values. */
+/** Board state: the chosen theme, the shared content opacity, and each theme's own layer values. */
 interface BoardState {
   version: number
   theme: string
+  /**
+   * Opacity of the conversation's content-block backgrounds, in percent. Held
+   * once for the whole board rather than per theme: it is a legibility setting,
+   * and switching the look must not silently change how much text sits on.
+   */
+  contentBg: number
   layers: Record<string, Record<string, LayerState>>
 }
 
@@ -75,7 +82,7 @@ function layersOf(state: BoardState, theme: ThemePack): Record<string, LayerStat
 
 /** A fresh board state: the default theme, with nothing tuned yet. */
 function defaultState(): BoardState {
-  return { version: STATE_VERSION, theme: defaultTheme().id, layers: {} }
+  return { version: STATE_VERSION, theme: defaultTheme().id, contentBg: CONTENT_BG_DEFAULT, layers: {} }
 }
 
 /** Copy whatever the stored entry provides onto a layer, field by field. */
@@ -141,6 +148,10 @@ function loadState(): BoardState {
   if (typeof stored !== 'object' || stored === null) return state
   const entries = stored as Record<string, unknown>
   const version = typeof entries.version === 'number' ? entries.version : 1
+  // Absent from anything written before the content slider shipped, which is why
+  // a missing entry means the default rather than a corrupt state. The slider is
+  // global, so it is read here and not out of any theme's layer map.
+  if (typeof entries.contentBg === 'number') state.contentBg = entries.contentBg
 
   if (typeof entries.layers === 'object' && entries.layers !== null) {
     if (typeof entries.theme === 'string') state.theme = themeById(entries.theme).id
@@ -190,6 +201,10 @@ function media(file: string | null | undefined, visible: boolean): string {
 function applyState(state: BoardState): void {
   const root = document.documentElement
   const theme = themeById(state.theme)
+  // A percentage, because tokens.ts reads it as the weight of a color-mix(): the
+  // content-block tokens are re-declared there with it, and a board that never
+  // mounts leaves the variable absent so the shipped value wins.
+  root.style.setProperty(CONTENT_BG_VARIABLE, `${String(state.contentBg)}%`)
   // A theme can ask for the sidebar to sit flush against the content area. The
   // sheet keys its rule off this flag, so it has to be published with the theme
   // rather than baked in at build time.
@@ -223,6 +238,7 @@ function applyState(state: BoardState): void {
 function clearState(): void {
   const root = document.documentElement
   root.removeAttribute('data-dsz-flush-sidebar')
+  root.style.removeProperty(CONTENT_BG_VARIABLE)
   const suffixes = ['image', 'image-dark', 'size', 'pos', 'opacity', 'dark-scale', 'dark-pos']
   for (const layer of LAYERS) {
     for (const suffix of suffixes) root.style.removeProperty(`--dsz-${layer.id}-${suffix}`)
@@ -418,6 +434,117 @@ function layerSection(
   return section
 }
 
+/**
+ * The content blocks' own opacity.
+ *
+ * Not a layer: there is no art behind it, only the alias tokens the
+ * conversation's code blocks, inline code and tool cards paint their background
+ * from. It lives in the board anyway, above the layer rows, because those rows
+ * all belong to the selected theme while this value is shared by every theme —
+ * one control per scope keeps it obvious which ones a theme switch resets.
+ *
+ * It opens by default. The layer rows stay folded until one is actually being
+ * tuned, but a section with a single row costs the board nothing, and hiding the
+ * one control the board was opened for would be its own bug.
+ * @param state - board state, mutated in place.
+ * @param onChange - called after any mutation.
+ */
+function contentSection(state: BoardState, onChange: () => void): HTMLElement {
+  const section = document.createElement('section')
+  section.className = `${BOARD_CLASS}__layer`
+  section.toggleAttribute('data-open', true)
+
+  const head = document.createElement('div')
+  head.className = `${BOARD_CLASS}__name`
+  head.addEventListener('click', () => {
+    section.toggleAttribute('data-open')
+  })
+
+  const text = document.createElement('span')
+  text.className = `${BOARD_CLASS}__label`
+  text.textContent = '内容背景'
+
+  const caret = document.createElement('span')
+  caret.className = `${BOARD_CLASS}__caret`
+  caret.textContent = '▸'
+
+  head.append(text, caret)
+
+  const rows = document.createElement('div')
+  rows.className = `${BOARD_CLASS}__rows`
+  rows.append(
+    // Same reading as the layer rows: 100 is fully opaque, 0 lets the figures
+    // show straight through the block.
+    sliderRow('透明度', 0, 100, state.contentBg,
+      value => `${String(Math.round(value))}%`, value => {
+        state.contentBg = value
+        onChange()
+      }),
+  )
+
+  section.append(head, rows)
+  return section
+}
+
+/**
+ * The launch clip's play length, as a section of its own.
+ *
+ * It is not a theme value and not a layer: the clip is played once per load, so
+ * this reads and writes its own storage key rather than the board's state —
+ * the splash needs it before the board ever mounts, and a theme switch has no
+ * business resetting it.
+ *
+ * The slider reports whole seconds. The shipped clip runs 5.57s, so the top of
+ * the range sits at 6: a value past the clip's own length simply never fires,
+ * which reads as "play the whole thing" without needing a separate full-length
+ * sentinel. Zero means the same thing — no cut — because a cut of zero seconds
+ * is no cut at all, not a way to switch the splash off.
+ *
+ * A change takes effect on the next launch: the clip has already played by the
+ * time this control is reachable, so there is no live preview to drive.
+ * @returns the section element.
+ */
+function splashSection(): HTMLElement {
+  const section = document.createElement('section')
+  section.className = `${BOARD_CLASS}__layer`
+  section.toggleAttribute('data-open', true)
+
+  const head = document.createElement('div')
+  head.className = `${BOARD_CLASS}__name`
+  head.addEventListener('click', () => {
+    section.toggleAttribute('data-open')
+  })
+
+  const text = document.createElement('span')
+  text.className = `${BOARD_CLASS}__label`
+  text.textContent = '启动动画'
+
+  const caret = document.createElement('span')
+  caret.className = `${BOARD_CLASS}__caret`
+  caret.textContent = '▸'
+
+  head.append(text, caret)
+
+  const rows = document.createElement('div')
+  rows.className = `${BOARD_CLASS}__rows`
+  rows.append(
+    sliderRow('播放秒数', 0, 6, loadSplashDuration() || SPLASH_DURATION_DEFAULT,
+      value => (value === 0 ? '完整' : `${String(value)}秒`), value => {
+        // Written straight to its own key: no publish, because the splash reads
+        // this only at load and the board's own state does not describe it.
+        try {
+          if (value === 0) window.localStorage.removeItem(SPLASH_DURATION_KEY)
+          else window.localStorage.setItem(SPLASH_DURATION_KEY, String(value))
+        } catch {
+          // A blocked store costs the setting, never the splash's own playback.
+        }
+      }),
+  )
+
+  section.append(head, rows)
+  return section
+}
+
 /** The three paint dots on the palette glyph. */
 const PALETTE_DOTS: readonly { cx: number; cy: number }[] = [
   { cx: 7.6, cy: 12.4 },
@@ -512,7 +639,7 @@ function buildPanel(
     })
     picker.append(button)
   }
-  body.append(picker)
+  body.append(picker, contentSection(state, onChange), splashSection())
 
   for (const layer of LAYERS) {
     const layerState = current[layer.id]

@@ -243,13 +243,35 @@ transform 会把整个侧栏连同列表一起镜像。
 一起改，`test/client.test.mjs` 会检查这一组的 WCAG。背景的 `mix-blend-mode` 和不透明度模板也在
 同文件的 `buildSkinCss()`，数值来自 `slots.ts` 的 `BACKGROUND_BLEND`。
 
+### 内容底色的透明度
+
+对话里的代码块、行内代码和工具卡片（读文件 / 搜索 / 终端 / 差异 / JSON）画的是同一族别名 token
+（`--dsw-alias-markdown-code-block`、`-banner`、`-inline-code`），所以画板里那一个滑块就管到了全部，
+不需要按组件写选择器 —— 第一方改了哈希类名也不受影响。
+
+覆盖值由 `tokens.ts` 的 `contentBlock()` 造出，形如
+`color-mix(in srgb, var(--dsw-static-*) var(--dsz-content-bg, 100%), transparent)`。三条约束不能动：
+
+- **只读 `--dsz-content-bg` 这个名字。** 画板把它写在 `:root`，token 值在 `body` 上读，两边拼错就是
+  "滑块拖得动、画面不动"，而且不报任何错 —— 所以名字是 `slots.ts` 里的
+  `CONTENT_BG_VARIABLE`，两边都从那里取。
+- **底色引用 `--dsw-static-*`，不能引用 `--dsw-alias-markdown-*` 自己。** 主题 token 是被
+  `ui-layout` 的 presenter 以**行内样式**落在 `body` 上的，而自定义属性在声明它的元素上自引用就是
+  循环；循环等于 guaranteed-invalid，代码块会直接丢掉整块底色，而不是"停在原来的不透明上"。
+  静态色板和这些别名都声明在 `body`，所以引用的解析位置和覆盖落点是同一个元素。
+- **三个 token 要一起改。** 只动 `-code-block` 会让代码块半透明而标题栏照旧是不透明的一条。
+
+`CONTENT_BG_DEFAULT`（100）同时是滑块初值和 CSS 兜底：画板从没挂载过的时候，内容段保持第一方
+原本的样子。值在 `localStorage` 里全局一份、不按主题分，因为它是可读性设置而不是外观的一部分。
+
 ## 本地校验
 
 ```sh
 npm run test        # node:test：token 名形状、light/dark 成对性、WCAG 对比度、
                     # 样式表的模式门、面板字色对比度；主题 id 唯一、未知 id 回落到默认、
                     # 每套主题都有素材、素材文件真实存在且扩展名可服务、
-                    # 变体的色块互不重复、默认下标在范围内
+                    # 变体的色块互不重复、默认下标在范围内、
+                    # 内容底色确实是"被画板稀释的静态色"而不是自引用或写死色
 npm run typecheck   # tsc --noEmit
 npm run build       # tsc 出 lib/types 声明，tsdown 从 src/ 出 lib/index.js 与 lib/client.js
 ```

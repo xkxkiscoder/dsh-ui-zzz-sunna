@@ -6,9 +6,10 @@
  * first paint, it does not delay it. It fades out on purpose: a hard cut reads
  * as a glitch, a fade reads as a transition.
  *
- * Three separate things take it away — the clip ending, a load failure, and a floor
- * timer — so a clip that never loads still leaves a usable window behind. A click
- * on the overlay skips it early.
+ * Four separate things take it away — the clip reaching its end, a configured
+ * play length running out, a load failure, and a floor timer — so a clip that
+ * never loads still leaves a usable window behind. A click on the overlay skips
+ * it early.
  */
 import { ASSET_PREFIX } from '../paths.ts'
 
@@ -26,6 +27,42 @@ const MIN_VISIBLE_MS = 600
 
 /** Fade duration; must match the transition the stylesheet declares. */
 const FADE_MS = 420
+
+/**
+ * Storage key holding the configured play length, in whole seconds.
+ *
+ * Kept out of the board's own state: the board file is versioned per theme and
+ * this is not per-theme, and the splash reads it before the board ever mounts,
+ * so it has to be reachable on its own. Exported because the board writes it.
+ */
+export const SPLASH_DURATION_KEY = 'dsh-ui-zzz-sunna:splash-duration'
+
+/**
+ * Shipped default, in seconds. Zero means "no truncation": the clip runs to its
+ * own end, which is the value a fresh install should have. It reads as the
+ * length of a cut that was never made rather than as "play nothing", so the
+ * slider's floor cannot be mistaken for a way to disable the splash.
+ */
+export const SPLASH_DURATION_DEFAULT = 0
+
+/**
+ * Read the configured play length in seconds.
+ *
+ * Anything unusable — an absent key, a stale value from an older schema, a
+ * corrupted store — falls back to the default rather than to silence: the splash
+ * must still play, just for its full length.
+ * @returns whole seconds to play, or 0 for the whole clip.
+ */
+export function loadSplashDuration(): number {
+  try {
+    const raw = window.localStorage.getItem(SPLASH_DURATION_KEY)
+    const seconds = raw === null ? NaN : Number.parseInt(raw, 10)
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : SPLASH_DURATION_DEFAULT
+  } catch {
+    // A blocked or unreadable store costs the setting, never the splash itself.
+    return SPLASH_DURATION_DEFAULT
+  }
+}
 
 /**
  * Install the splash overlay and the stylesheet it needs.
@@ -61,12 +98,23 @@ export function installSplash(): () => void {
   let fadeTimer = 0
   const started = Date.now()
 
+  // A configured cut shortens the pass: the clip fades out once it has played
+  // that many seconds, rather than running to its own end. `timeupdate` fires
+  // only while playing, so a clip that stalls instead reaches the floor timer —
+  // the overlay never gets stuck. The listener is registered only when a cut is
+  // actually configured, so the usual full-length playback pays for nothing.
+  const cutSeconds = loadSplashDuration()
+  const cutAt = (): void => {
+    if (clip.currentTime >= cutSeconds) dismiss()
+  }
+
   const dismiss = (): void => {
     if (dismissed) return
     dismissed = true
     root.removeEventListener('click', dismiss)
     clip.removeEventListener('ended', dismiss)
     clip.removeEventListener('error', dismiss)
+    clip.removeEventListener('timeupdate', cutAt)
     // Wait out the floor, then fade. Using the floor as a deadline instead ended
     // every clip that ran longer than it, mid-play.
     holdTimer = window.setTimeout(() => {
@@ -80,6 +128,7 @@ export function installSplash(): () => void {
   clip.addEventListener('ended', dismiss)
   clip.addEventListener('error', dismiss)
   root.addEventListener('click', dismiss)
+  if (cutSeconds > 0) clip.addEventListener('timeupdate', cutAt)
 
   // A rejected play() is not fatal: the error listener takes the overlay away.
   void clip.play().catch(() => undefined)

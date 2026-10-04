@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import { LAYER_SOURCE, TOKENS } from '../src/client/tokens.ts'
 import { BOARD_CLASS, SKIN_PANEL_LIGHT, STYLE_ID, buildBoardCss, buildSkinCss } from '../src/client/skin.ts'
-import { BACKGROUND_BLEND, LAYERS, THEMES, assetUrl, defaultTheme, layerById, resolveLayer, themeById } from '../src/client/slots.ts'
+import { BACKGROUND_BLEND, CONTENT_BG_DEFAULT, CONTENT_BG_VARIABLE, LAYERS, THEMES, assetUrl, defaultTheme, layerById, resolveLayer, themeById } from '../src/client/slots.ts'
 import { ASSET_EXTENSIONS, ASSET_PREFIX } from '../src/paths.ts'
 
 const PACKAGE_NAME = 'dsh-ui-zzz-sunna'
@@ -372,6 +372,44 @@ test('every backdrop candidate is a distinct swatch and every cut is reachable',
   // And the dotted default has to be the entry that follows the mode.
   const index = backdrop.defaults.variant ?? 0
   assert.equal(list[index]?.file, backdrop.file)
+})
+
+test('the content blocks are thinned by the board rather than recoloured', () => {
+  // Three silent failures live here. Naming the alias inside its own value makes
+  // the custom property a cycle, and a cycle is guaranteed-invalid: every code
+  // block and tool card would come back with no background at all. A value that
+  // never reads the board's variable leaves the slider wired to nothing. And a
+  // fallback other than the shipped default would fade a profile whose board
+  // never mounted.
+  const thinned = [
+    '--dsw-alias-markdown-code-block',
+    '--dsw-alias-markdown-code-block-banner',
+    '--dsw-alias-markdown-inline-code',
+  ]
+  const expected = new RegExp(
+    `^color-mix\\(in srgb, var\\(--dsw-static-[a-z0-9-]+\\) var\\(${CONTENT_BG_VARIABLE}, ${String(CONTENT_BG_DEFAULT)}%\\), transparent\\)$`,
+  )
+  for (const name of thinned) {
+    for (const scheme of ['light', 'dark']) {
+      const value = TOKENS[name]?.[scheme]
+      assert.equal(typeof value, 'string', `${name}.${scheme} is not overridden at all`)
+      assert.match(value, expected, `${name}.${scheme} is not a thinned static-palette colour: ${String(value)}`)
+    }
+  }
+})
+
+test('the content opacity ships fully opaque, and the variable name is one string', () => {
+  // 100 on the slider has to be the first party's own appearance, so a fresh
+  // profile is not already faded. The variable is shared by the board that writes
+  // it and the tokens that read it: were the two sides to spell it differently,
+  // the slider would drag while nothing moved, and no error would say so.
+  assert.equal(CONTENT_BG_DEFAULT, 100)
+  assert.equal(CONTENT_BG_VARIABLE, '--dsz-content-bg')
+  for (const name of ['--dsw-alias-markdown-code-block', '--dsw-alias-markdown-inline-code']) {
+    for (const scheme of ['light', 'dark']) {
+      assert.match(TOKENS[name][scheme], new RegExp(`var\\(${CONTENT_BG_VARIABLE},`))
+    }
+  }
 })
 
 test('every light-mode panel label clears AA on the hair ground', () => {

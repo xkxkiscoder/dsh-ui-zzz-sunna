@@ -11,13 +11,13 @@ Third-party derivative notice (CC BY-NC-SA 4.0 attribution chain)
    The original game and character design.
 
 2. 角色素材 (assets): assets/ 下的立绘与意象影画取自萌娘共享的「千夏(绝区零)」
-   分类页；七个 Q 版表情的源文件来自官方表情导出包；启动动画为用户自制。
+   分类页；七个 Q 版表情的源文件来自官方表情导出包；启动动画为官方角色 PV 片段。
    素材经过裁边、抠图/镜像与重采样处理。逐项来源与权利审计见
    assets/SOURCES.md。
    Character art and key visuals come from the Moegirl Commons category;
    the chibi emote source files come from an official emote export; the
-   launch animation is the author's own work. Per-file provenance and
-   rights audit: assets/SOURCES.md.
+   launch animation is a clip from the official character PV. Per-file
+   provenance and rights audit: assets/SOURCES.md.
 
 3. 工程结构 (engineering structure): 两半插件布局（node 侧资产路由 + 浏览器侧
    覆盖层）与「皮肤覆盖层 + 自定义属性」的整体思路，参考
